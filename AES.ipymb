@@ -1,0 +1,92 @@
+import os
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import padding
+
+class AESCipher:
+    """
+    A professional-grade AES implementation for academic study.
+    Standard: AES-256-CBC with PKCS7 Padding.
+    
+    AES is the industry standard for symmetric encryption, operating on 
+    128-bit blocks with key sizes of 128, 192, or 256 bits.
+    """
+    def __init__(self, key=None):
+        # AES-256 requires a 32-byte (256-bit) key.
+        # This is the most secure version of the AES standard.
+        self.key = key if key else os.urandom(32)
+        self.backend = default_backend()
+
+        if len(self.key) not in [16, 24, 32]:
+            raise ValueError("AES key must be 16, 24, or 32 bytes long.")
+
+    def encrypt(self, plaintext: str) -> dict:
+        """
+        Encrypts plaintext using AES-256-CBC.
+        Returns a dictionary containing the ciphertext and the IV.
+        """
+        # AES uses a 128-bit block size, so the IV must be 16 bytes.
+        iv = os.urandom(16)
+        
+        # Setup Padding (AES operates on 128-bit blocks)
+        padder = padding.PKCS7(128).padder()
+        padded_data = padder.update(plaintext.encode()) + padder.finalize()
+
+        # Create Cipher object using AES algorithm in CBC mode
+        cipher = Cipher(algorithms.AES(self.key), 
+                        modes.CBC(iv), 
+                        backend=self.backend)
+        encryptor = cipher.encryptor()
+        
+        # Encrypt the padded data
+        ciphertext = encryptor.update(padded_data) + encryptor.finalize()
+        
+        return {
+            "ciphertext": ciphertext,
+            "iv": iv,
+            "key_size_bits": len(self.key) * 8
+        }
+
+    def decrypt(self, ciphertext: bytes, iv: bytes) -> str:
+        """
+        Decrypts ciphertext using AES-256-CBC.
+        """
+        cipher = Cipher(algorithms.AES(self.key), 
+                        modes.CBC(iv), 
+                        backend=self.backend)
+        decryptor = cipher.decryptor()
+        
+        # Decrypt the ciphertext
+        padded_data = decryptor.update(ciphertext) + decryptor.finalize()
+
+        # Remove PKCS7 Padding
+        unpadder = padding.PKCS7(128).unpadder()
+        data = unpadder.update(padded_data) + unpadder.finalize()
+        
+        return data.decode('utf-8')
+
+# --- Usage Example for Week 1 Presentation ---
+if __name__ == "__main__":
+    print("--- Advanced Encryption Standard (AES) Demo ---")
+    
+    # Initialize with a 256-bit key
+    aes_key = os.urandom(32) 
+    aes = AESCipher(aes_key)
+    
+    message = "AES is the gold standard for symmetric encryption worldwide."
+    
+    # Encrypt
+    result = aes.encrypt(message)
+    print(f"Algorithm:       AES-256-CBC")
+    print(f"Key Size:        {result['key_size_bits']} bits")
+    print(f"Original:        {message}")
+    print(f"Ciphertext(hex): {result['ciphertext'].hex()}")
+    print(f"IV (hex):         {result['iv'].hex()}")
+    
+    # Decrypt
+    decrypted = aes.decrypt(result['ciphertext'], result['iv'])
+    print(f"Decrypted:       {decrypted}")
+
+    # Verification
+    assert message == decrypted
+    print("\nAES Encryption Cycle: Success.")
